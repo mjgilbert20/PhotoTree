@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and tree state.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "treeLevel": { "type": "number" },
+        "fertilizer": { "type": "number" },
+        "leafCount": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "treeLevel", "fertilizer"]
+    },
+    "Leaf": {
+      "title": "Leaf",
+      "description": "A picture shared as a leaf on the tree.",
+      "type": "object",
+      "properties": {
+        "leafId": { "type": "string" },
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["on_tree", "fallen", "raked", "growing"] },
+        "position": { 
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        },
+        "branchIndex": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "fallAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["leafId", "userId", "imageUrl", "status"]
+    },
+    "Connection": {
+      "title": "Connection",
+      "description": "A connection between two users represented as a branch.",
+      "type": "object",
+      "properties": {
+        "connectionId": { "type": "string" },
+        "userA": { "type": "string" },
+        "userB": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["connectionId", "userA", "userB"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and global tree stats."
+    },
+    "/users/{userId}/leaves/{leafId}": {
+      "schema": "Leaf",
+      "description": "Collection of leaves belonging to a user's tree."
+    },
+    "/connections/{connectionId}": {
+      "schema": "Connection",
+      "description": "Shared connections between users."
+    }
+  }
+}

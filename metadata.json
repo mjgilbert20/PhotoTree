@@ -1,0 +1,12 @@
+{
+  "name": "Leaflet",
+  "description": "A social tree-growing game where shared memories become leaves. Nurture your tree, connect with friends via branches, and watch your memories flourish.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "Multiplayer",
+    "Image Sharing",
+    "Interactive Animations"
+  ]
+}

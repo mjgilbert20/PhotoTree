@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isConnected(userId) {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/connections/$(request.auth.uid + "_" + userId)) ||
+        exists(/databases/$(database)/documents/connections/$(userId + "_" + request.auth.uid))
+      );
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'treeLevel', 'fertilizer', 'leafCount', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.treeLevel is number && data.treeLevel >= 0 &&
+             data.fertilizer is number && data.fertilizer >= 0 &&
+             data.leafCount is number && data.leafCount >= 0 &&
+             (data.get('displayName', '') is string) && (data.get('displayName', '').size() <= 100) &&
+             (data.get('photoURL', '') is string) && (data.get('photoURL', '').size() <= 500);
+    }
+
+    function isValidLeaf(data, userId) {
+      return data.keys().hasAll(['leafId', 'userId', 'imageUrl', 'status']) &&
+             data.userId == userId &&
+             data.leafId is string && data.leafId.size() <= 128 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1000 &&
+             data.status in ['on_tree', 'fallen', 'raked', 'growing'] &&
+             (!data.keys().contains('branchIndex') || data.branchIndex is number);
+    }
+
+    function isValidConnection(data) {
+      return data.keys().hasAll(['connectionId', 'userA', 'userB', 'createdAt']) &&
+             data.connectionId is string &&
+             (data.userA == request.auth.uid || data.userB == request.auth.uid) &&
+             isValidId(data.userA) && isValidId(data.userB);
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow read: if isSignedIn(); 
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().updatedAt == request.time && (
+        // Action: Nurture (increase level, decrease fertilizer)
+        incoming().diff(existing()).affectedKeys().hasOnly(['treeLevel', 'fertilizer', 'updatedAt']) ||
+        // Action: Rake (increase fertilizer)
+        incoming().diff(existing()).affectedKeys().hasOnly(['fertilizer', 'updatedAt']) ||
+        // Action: New Leaf (increase count)
+        incoming().diff(existing()).affectedKeys().hasOnly(['leafCount', 'updatedAt']) ||
+        // Action: Profile Edit
+        incoming().diff(existing()).affectedKeys().hasAny(['displayName', 'photoURL', 'updatedAt'])
+      );
+    }
+
+    match /users/{userId}/leaves/{leafId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidLeaf(incoming(), userId) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidLeaf(incoming(), userId) && (
+        // Action: Fall
+        (incoming().status == 'fallen' && existing().status == 'on_tree' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'fallAt'])) ||
+        // Action: Rake
+        (incoming().status == 'raked' && existing().status == 'fallen' && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        // Action: Grow
+        (incoming().status == 'growing' && existing().status == 'raked' && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        // Action: Finish Growth
+        (incoming().status == 'on_tree' && existing().status == 'growing' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'position'])) ||
+        // Action: Categorize (AI Background Task)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['branchIndex']))
+      );
+      allow delete: if isOwner(userId);
+    }
+
+    match /connections/{connectionId} {
+      allow read: if isSignedIn() && (existing().userA == request.auth.uid || existing().userB == request.auth.uid);
+      allow create: if isSignedIn() && isValidConnection(incoming()) && incoming().createdAt == request.time;
+      allow delete: if isSignedIn() && (existing().userA == request.auth.uid || existing().userB == request.auth.uid);
+    }
+  }
+}
