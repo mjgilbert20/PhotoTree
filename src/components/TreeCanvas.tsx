@@ -142,7 +142,7 @@ const TreeCanvas: React.FC<TreeCanvasProps> = ({
     const set = new Set<number>();
     leaves.forEach(leaf => {
       if (leaf.status !== LeafStatus.RAKED) {
-        const idx = Math.floor((leaf.branchIndex / 100) * canvasSlots.length) % canvasSlots.length;
+        const idx = leaf.branchIndex % canvasSlots.length;
         set.add(idx);
       }
     });
@@ -183,15 +183,16 @@ const TreeCanvas: React.FC<TreeCanvasProps> = ({
               stroke="rgba(45, 122, 32, 0.55)"
               strokeWidth={1.4}
               dash={[4, 3]}
-              onClick={() => onSharePicture({ x: slot.x, y: slot.y }, Math.floor((i / canvasSlots.length) * 100))}
-              onTap={() => onSharePicture({ x: slot.x, y: slot.y }, Math.floor((i / canvasSlots.length) * 100))}
+              onClick={() => onSharePicture({ x: slot.x, y: slot.y }, i)}
+              onTap={() => onSharePicture({ x: slot.x, y: slot.y }, i)}
             />
           );
         })}
  
         {/* User photo leaves */}
         {leaves.map((leaf, leafIdx) => {
-          const slotIdx = Math.floor((leaf.branchIndex / 100) * canvasSlots.length) % canvasSlots.length;
+          // branchIndex is now stored as the direct slot index
+          const slotIdx = leaf.branchIndex % canvasSlots.length;
           const slot = canvasSlots[slotIdx];
  
           let pos: Position;

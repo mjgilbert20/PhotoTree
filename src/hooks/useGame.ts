@@ -15,15 +15,15 @@ import { auth, db, handleFirestoreError } from '../firebase';
 import { User, Leaf, LeafStatus, OperationType, Position } from '../types';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { GoogleGenAI, Type } from "@google/genai";
-
+ 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
+ 
 export function useGame() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [targetUser, setTargetUser] = useState<User | null>(null);
   const [leaves, setLeaves] = useState<Leaf[]>([]);
   const [loading, setLoading] = useState(true);
-
+ 
   // TEMPORARY: Mock user for development (disable login)
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (isDevelopment && !currentUser) {
@@ -40,11 +40,11 @@ export function useGame() {
     setTargetUser(mockUser);
     setLoading(false);
   }
-
+ 
   // Auth Listener
   useEffect(() => {
     if (isDevelopment) return; // Skip auth in development
-
+ 
     return onAuthStateChanged(auth, async (u) => {
       if (u) {
         const userDoc = doc(db, 'users', u.uid);
@@ -76,11 +76,11 @@ export function useGame() {
       }
     });
   }, []);
-
+ 
   // Sync Leaves
   useEffect(() => {
     if (!currentUser || !targetUser) return;
-
+ 
     const q = query(collection(db, `users/${targetUser.userId}/leaves`));
     const unsub = onSnapshot(q, (snap) => {
       const l: Leaf[] = [];
@@ -88,10 +88,10 @@ export function useGame() {
       setLeaves(l);
       setLoading(false);
     }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${targetUser.userId}/leaves`));
-
+ 
     return unsub;
   }, [currentUser, targetUser]);
-
+ 
   // Actions
   const login = async () => {
     const provider = new GoogleAuthProvider();
@@ -107,10 +107,10 @@ export function useGame() {
       }
     }
   };
-
+ 
   const addLeaf = async (imageUrl: string, pos: Position, branchIndex: number) => {
     if (!currentUser) return;
-    
+ 
     const leafId = doc(collection(db, 'temp')).id;
     const newLeaf: Leaf = {
       leafId,
@@ -121,7 +121,14 @@ export function useGame() {
       branchIndex,
       createdAt: serverTimestamp()
     };
-
+ 
+    // In dev mode (mock user), Firestore writes silently fail because we're
+    // not authenticated. Update local state directly so the demo works.
+    if (isDevelopment) {
+      setLeaves(prev => [...prev, newLeaf]);
+      return;
+    }
+ 
     // Add immediately to Firestore so it shows up in UI
     try {
       await setDoc(doc(db, `users/${currentUser.userId}/leaves`, leafId), newLeaf);
@@ -129,7 +136,7 @@ export function useGame() {
         leafCount: increment(1),
         updatedAt: serverTimestamp()
       });
-
+ 
       // Background AI categorization (non-blocking)
       ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -172,14 +179,23 @@ export function useGame() {
         }
       })
       .catch(err => console.warn("AI Classification failed", err));
-
+ 
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.userId}/leaves/${leafId}`);
     }
   };
-
+ 
   const rakeLeaf = async (leafId: string) => {
     if (!currentUser) return;
+ 
+    if (isDevelopment) {
+      setLeaves(prev => prev.map(l =>
+        l.leafId === leafId ? { ...l, status: LeafStatus.RAKED } : l
+      ));
+      setCurrentUser(prev => prev ? { ...prev, fertilizer: prev.fertilizer + 1 } : prev);
+      return;
+    }
+ 
     try {
       await updateDoc(doc(db, `users/${currentUser.userId}/leaves`, leafId), {
         status: LeafStatus.RAKED
@@ -192,9 +208,24 @@ export function useGame() {
       handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.userId}/leaves/${leafId}`);
     }
   };
-
+ 
   const nurtureTree = async () => {
     if (!currentUser || currentUser.fertilizer < 5) return;
+ 
+    if (isDevelopment) {
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        treeLevel: prev.treeLevel + 1,
+        fertilizer: prev.fertilizer - 5,
+      } : prev);
+      setTargetUser(prev => prev ? {
+        ...prev,
+        treeLevel: prev.treeLevel + 1,
+        fertilizer: prev.fertilizer - 5,
+      } : prev);
+      return;
+    }
+ 
     try {
       await updateDoc(doc(db, 'users', currentUser.userId), {
         treeLevel: increment(1),
@@ -205,11 +236,11 @@ export function useGame() {
       handleFirestoreError(e, OperationType.WRITE, `users/${currentUser.userId}`);
     }
   };
-
+ 
   // Gravity effect for host
   useEffect(() => {
     if (!currentUser || targetUser?.userId !== currentUser.userId) return;
-
+ 
     const interval = setInterval(() => {
       const onTreeLeaves = leaves.filter(l => l.status === LeafStatus.ON_TREE);
       if (onTreeLeaves.length > 0 && Math.random() > 0.7) {
@@ -220,15 +251,15 @@ export function useGame() {
         }).catch(e => handleFirestoreError(e, OperationType.UPDATE, `users/${currentUser.userId}/leaves/${leafToFall.leafId}`));
       }
     }, 5000);
-
+ 
     return () => clearInterval(interval);
   }, [currentUser, targetUser, leaves]);
-
+ 
   const [allUsers, setAllUsers] = useState<User[]>([]);
-
+ 
   useEffect(() => {
     if (!currentUser) return;
-
+ 
     const q = query(collection(db, 'users'));
     return onSnapshot(q, (snap) => {
       const u: User[] = [];
@@ -236,7 +267,7 @@ export function useGame() {
       setAllUsers(u);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'users'));
   }, [currentUser]);
-
+ 
   return {
     currentUser,
     targetUser,

@@ -15,9 +15,9 @@ import {
   Camera
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-
+ 
 import UserListModal from './components/UserListModal';
-
+ 
 export default function App() {
   const { 
     currentUser, 
@@ -31,21 +31,21 @@ export default function App() {
     nurtureTree,
     loading 
   } = useGame();
-
+ 
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [showUpload, setShowUpload] = useState<{ pos: Position, branchIndex: number } | null>(null);
   const [showExplore, setShowExplore] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
-
+ 
   const isMyTree = currentUser && targetUser && currentUser.userId === targetUser.userId;
-
+ 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
+ 
   const handleNurture = () => {
     nurtureTree();
     confetti({
@@ -55,7 +55,7 @@ export default function App() {
       colors: ['#4ADE80', '#22C55E', '#166534']
     });
   };
-
+ 
   const handleAddLeaf = () => {
     if (showUpload && imageUrl) {
       addLeaf(imageUrl, showUpload.pos, showUpload.branchIndex);
@@ -63,13 +63,36 @@ export default function App() {
       setImageUrl('');
     }
   };
-
+ 
+  // Read a chosen file as a data URL and set it as the image source.
+  // Data URLs work directly as <img src> / Konva Image, no server needed —
+  // good for demos.
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setImageUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+ 
+  // Quick sample images for one-tap demo (Unsplash, public, hot-link friendly).
+  const SAMPLE_PHOTOS = [
+    'https://images.unsplash.com/photo-1552053831-71594a27632d?w=200&h=200&fit=crop', // dog
+    'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=200&h=200&fit=crop', // beach
+    'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=200&h=200&fit=crop', // ocean
+    'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=200&h=200&fit=crop', // forest
+  ];
+ 
   const openMemoryModal = () => {
     if (!isMyTree) return;
     // Pick a random branch slot if possible, or just index 0
     setShowUpload({ pos: { x: dimensions.width / 2, y: dimensions.height / 2 }, branchIndex: 0 });
   };
-
+ 
   if (loading) {
     return (
       <div className="h-screen w-screen bg-sky-100 flex items-center justify-center">
@@ -82,7 +105,7 @@ export default function App() {
       </div>
     );
   }
-
+ 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gradient-to-b from-brand-blue to-brand-light relative font-sans text-slate-800">
       {/* Background Animated Clouds */}
@@ -99,7 +122,7 @@ export default function App() {
         />
         <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-green-50 to-transparent opacity-60" />
       </div>
-
+ 
       {/* Wind Lines */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {[...Array(3)].map((_, i) => (
@@ -121,7 +144,7 @@ export default function App() {
           />
         ))}
       </div>
-
+ 
       {!currentUser ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-brand-blue/10 backdrop-blur-sm">
           <motion.div 
@@ -153,7 +176,7 @@ export default function App() {
             onRakeLeaf={rakeLeaf}
             onSharePicture={(pos, branchIndex) => setShowUpload({ pos, branchIndex })}
           />
-
+ 
           {/* Header HUD */}
           <header className="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-20 pointer-events-none">
             <div className="flex items-center gap-3 pointer-events-auto cursor-pointer" onClick={() => setTargetUser(currentUser)}>
@@ -162,7 +185,7 @@ export default function App() {
               </div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Leaflet</h1>
             </div>
-
+ 
             <div className="flex items-center gap-6 bg-white/40 backdrop-blur-md px-6 py-2 rounded-full border border-white/50 pointer-events-auto">
               {isMyTree && (
                 <>
@@ -178,7 +201,7 @@ export default function App() {
                 <span className="text-lg font-mono font-bold text-slate-800 leading-none">{leaves.length}</span>
               </div>
             </div>
-
+ 
             <div className="flex items-center gap-3 pointer-events-auto">
               <div className="flex -space-x-3 mr-2">
                 {allUsers.slice(0, 3).map((u, i) => (
@@ -204,7 +227,7 @@ export default function App() {
               </button>
             </div>
           </header>
-
+ 
           {/* Visiting Indicator */}
           {!isMyTree && (
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
@@ -220,7 +243,7 @@ export default function App() {
               </div>
             </div>
           )}
-
+ 
           {/* Bottom Controls */}
           <nav className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white p-3 rounded-[2rem] shadow-2xl border border-slate-100 z-30">
             <button 
@@ -250,7 +273,7 @@ export default function App() {
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest">Nurture</span>
             </button>
-
+ 
             <button 
               onClick={() => setShowStats(true)}
               className="flex flex-col items-center justify-center w-20 h-20 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors"
@@ -260,7 +283,7 @@ export default function App() {
               <span className="text-[10px] font-bold uppercase tracking-widest">Stats</span>
             </button>
           </nav>
-
+ 
           <AnimatePresence>
             {showExplore && (
               <UserListModal 
@@ -270,7 +293,7 @@ export default function App() {
               />
             )}
           </AnimatePresence>
-
+ 
           <AnimatePresence>
             {showStats && (
               <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[200] flex items-center justify-center p-6">
@@ -311,7 +334,7 @@ export default function App() {
               </div>
             )}
           </AnimatePresence>
-
+ 
           {/* Upload Modal Overlay */}
           <AnimatePresence>
             {showUpload && (
@@ -332,21 +355,73 @@ export default function App() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-slate-800">New Memory</h3>
-                      <p className="text-sm text-slate-400">Add a link to a precious moment.</p>
+                      <p className="text-sm text-slate-400">Pick a photo for your tree.</p>
                     </div>
                   </div>
-                  
-                  <div className="space-y-4 mb-10">
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Image URL</label>
-                    <input 
-                      type="text" 
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/photo.jpg"
-                      className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 focus:border-brand-blue focus:bg-white outline-none transition-all placeholder:text-slate-300"
-                    />
+ 
+                  <div className="space-y-5 mb-8">
+                    {/* Option 1: Choose a file from device */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1 mb-2">
+                        Upload from device
+                      </label>
+                      <label className="block w-full bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 rounded-2xl p-4 cursor-pointer text-center text-sm text-slate-500 font-medium transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFilePick}
+                        />
+                        Choose a photo…
+                      </label>
+                    </div>
+ 
+                    {/* Option 2: Sample photos for one-tap demo */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1 mb-2">
+                        Or pick a sample
+                      </label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {SAMPLE_PHOTOS.map((url) => (
+                          <button
+                            key={url}
+                            type="button"
+                            onClick={() => setImageUrl(url)}
+                            className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                              imageUrl === url
+                                ? 'border-brand-blue ring-2 ring-brand-blue/40'
+                                : 'border-slate-100 hover:border-slate-300'
+                            }`}
+                          >
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+ 
+                    {/* Option 3: paste a URL (existing) */}
+                    <div>
+                      <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1 mb-2">
+                        Or paste an image URL
+                      </label>
+                      <input
+                        type="text"
+                        value={imageUrl.startsWith('data:') ? '' : imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://example.com/photo.jpg"
+                        className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-3 focus:border-brand-blue focus:bg-white outline-none transition-all placeholder:text-slate-300 text-sm"
+                      />
+                    </div>
+ 
+                    {/* Preview the chosen image */}
+                    {imageUrl && (
+                      <div className="flex items-center gap-3 bg-slate-50 rounded-2xl p-3">
+                        <img src={imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
+                        <span className="text-xs text-slate-500 font-medium">Photo selected</span>
+                      </div>
+                    )}
                   </div>
-
+ 
                   <div className="flex gap-4">
                     <button 
                       onClick={() => setShowUpload(null)}
@@ -366,7 +441,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-
+ 
           {/* Context UI: Active Connection Label */}
           <div className="absolute top-40 right-12 w-48 pointer-events-none">
             <motion.div 
