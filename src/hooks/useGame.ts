@@ -24,8 +24,27 @@ export function useGame() {
   const [leaves, setLeaves] = useState<Leaf[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // TEMPORARY: Mock user for development (disable login)
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  if (isDevelopment && !currentUser) {
+    const mockUser: User = {
+      userId: 'dev-user-123',
+      displayName: 'Developer',
+      photoURL: null,
+      treeLevel: 1,
+      fertilizer: 10,
+      leafCount: 0,
+      updatedAt: serverTimestamp()
+    };
+    setCurrentUser(mockUser);
+    setTargetUser(mockUser);
+    setLoading(false);
+  }
+
   // Auth Listener
   useEffect(() => {
+    if (isDevelopment) return; // Skip auth in development
+
     return onAuthStateChanged(auth, async (u) => {
       if (u) {
         const userDoc = doc(db, 'users', u.uid);
